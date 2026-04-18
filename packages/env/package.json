@@ -4,8 +4,17 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./server": "./src/server.ts",
-    "./web": "./src/web.ts"
+    "./server": {
+      "types": "./dist/src/server.d.ts",
+      "default": "./dist/src/server.js"
+    },
+    "./web": {
+      "types": "./dist/src/web.d.ts",
+      "default": "./dist/src/web.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.1",

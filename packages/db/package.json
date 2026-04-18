@@ -1,15 +1,19 @@
 {
   "name": "@my-better-t-app/db",
   "type": "module",
+  "main": "./dist/src/index.js",
   "exports": {
     ".": {
-      "default": "./src/index.ts"
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
     },
     "./*": {
-      "default": "./src/*.ts"
+      "types": "./dist/src/*.d.ts",
+      "default": "./dist/src/*.js"
     }
   },
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",

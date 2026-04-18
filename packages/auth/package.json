@@ -1,15 +1,20 @@
 {
   "name": "@my-better-t-app/auth",
   "type": "module",
+  "main": "./dist/src/index.js",
   "exports": {
     ".": {
-      "default": "./src/index.ts"
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
     },
     "./*": {
-      "default": "./src/*.ts"
+      "types": "./dist/src/*.d.ts",
+      "default": "./dist/src/*.js"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
   "dependencies": {
     "@my-better-t-app/db": "workspace:*",
     "@my-better-t-app/env": "workspace:*",
