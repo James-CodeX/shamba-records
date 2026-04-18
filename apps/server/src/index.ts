@@ -30,13 +30,9 @@ export const app = new Elysia({ adapter: node() })
       },
     }),
   )
-  .all("/api/auth/*", async (context) => {
-    const { request, status } = context;
-    if (["POST", "GET"].includes(request.method)) {
-      return auth.handler(request);
-    }
-    return status(405);
-  })
+  .get("/api/auth/*", ({ request }) => auth.handler(request))
+  .post("/api/auth/*", ({ request }) => auth.handler(request))
+  .all("/api/auth/*", ({ status }) => status(405))
   .use(fieldsModule)
   .get("/", () => "OK")
   .listen(3000, () => {
