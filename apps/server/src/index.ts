@@ -2,7 +2,7 @@ import { cors } from "@elysiajs/cors";
 import { node } from "@elysiajs/node";
 import { openapi } from "@elysiajs/openapi";
 import { auth } from "@my-better-t-app/auth";
-import { env } from "@my-better-t-app/env/server";
+import { corsOrigins } from "@my-better-t-app/env/server";
 import { Elysia } from "elysia";
 
 import { fieldsModule } from "./modules/fields";
@@ -10,7 +10,7 @@ import { fieldsModule } from "./modules/fields";
 export const app = new Elysia({ adapter: node() })
   .use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: corsOrigins,
       methods: ["GET", "POST", "PATCH", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,

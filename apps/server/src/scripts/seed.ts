@@ -1,7 +1,7 @@
 import { auth } from "@my-better-t-app/auth";
 import { db } from "@my-better-t-app/db";
 import { field, fieldAssignment, fieldUpdate, user } from "@my-better-t-app/db/schema/auth";
-import { env } from "@my-better-t-app/env/server";
+import { corsOrigins } from "@my-better-t-app/env/server";
 import { eq, sql } from "drizzle-orm";
 
 const AGENT_COUNT = 30;
@@ -10,6 +10,11 @@ const ADMIN_EMAIL = "seed.admin@shamba.local";
 const ADMIN_PASSWORD = "Admin@12345";
 const AGENT_PASSWORD = "Agent@12345";
 const SEED_USER_EMAIL_LIKE = "seed.%@shamba.local";
+const SEED_ORIGIN =
+  corsOrigins[0] ??
+  (() => {
+    throw new Error("CORS_ORIGIN must include at least one valid origin");
+  })();
 
 type FieldStage = "planted" | "growing" | "ready" | "harvested";
 type FieldStatus = "active" | "completed";
@@ -33,7 +38,7 @@ async function signUpUser(name: string, email: string, password: string) {
       password,
     },
     headers: new Headers({
-      origin: env.CORS_ORIGIN,
+      origin: SEED_ORIGIN,
     }),
   });
 }

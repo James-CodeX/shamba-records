@@ -15,3 +15,8 @@ export const env = createEnv<undefined, typeof serverSchema>({
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
 });
+
+export const corsOrigins = env.CORS_ORIGIN.split(",")
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0)
+  .map((origin) => z.url().parse(origin));

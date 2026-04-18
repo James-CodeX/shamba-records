@@ -1,6 +1,6 @@
 import { createDb } from "@my-better-t-app/db";
 import * as schema from "@my-better-t-app/db/schema/auth";
-import { env } from "@my-better-t-app/env/server";
+import { corsOrigins, env } from "@my-better-t-app/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins";
@@ -14,7 +14,7 @@ export function createAuth() {
 
       schema: schema,
     }),
-    trustedOrigins: [env.CORS_ORIGIN],
+    trustedOrigins: corsOrigins,
     emailAndPassword: {
       enabled: true,
     },
