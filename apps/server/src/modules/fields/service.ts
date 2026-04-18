@@ -128,7 +128,6 @@ export class FieldsService {
     const fields = await this.getFields(currentUser);
     const statusBreakdown = {
       active: fields.filter((item) => item.status === "active").length,
-      atRisk: fields.filter((item) => item.status === "at_risk").length,
       completed: fields.filter((item) => item.status === "completed").length,
     };
 

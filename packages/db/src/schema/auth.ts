@@ -84,7 +84,7 @@ export const field = pgTable("field", {
     .notNull()
     .default("planted"),
   status: text("status")
-    .$type<"active" | "at_risk" | "completed">()
+    .$type<"active" | "completed">()
     .notNull()
     .default("active"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

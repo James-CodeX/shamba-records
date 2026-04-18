@@ -17,7 +17,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
-  const [tab, setTab] = useState("signup");
+  const [tab, setTab] = useState("signin");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -153,12 +153,14 @@ export default function LoginPage() {
                     <Input
                       id="signup-name"
                       value={signUpValues.name}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+
                         setSignUpValues((current) => ({
                           ...current,
-                          name: event.currentTarget.value,
-                        }))
-                      }
+                          name: value,
+                        }));
+                      }}
                     />
                   </Field>
                   <Field>
@@ -167,12 +169,14 @@ export default function LoginPage() {
                       id="signup-email"
                       type="email"
                       value={signUpValues.email}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+
                         setSignUpValues((current) => ({
                           ...current,
-                          email: event.currentTarget.value,
-                        }))
-                      }
+                          email: value,
+                        }));
+                      }}
                     />
                   </Field>
                   <Field>
@@ -181,12 +185,14 @@ export default function LoginPage() {
                       id="signup-password"
                       type="password"
                       value={signUpValues.password}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+
                         setSignUpValues((current) => ({
                           ...current,
-                          password: event.currentTarget.value,
-                        }))
-                      }
+                          password: value,
+                        }));
+                      }}
                     />
                     <FieldDescription>Use at least 8 characters.</FieldDescription>
                   </Field>
@@ -206,12 +212,14 @@ export default function LoginPage() {
                       id="signin-email"
                       type="email"
                       value={signInValues.email}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+
                         setSignInValues((current) => ({
                           ...current,
-                          email: event.currentTarget.value,
-                        }))
-                      }
+                          email: value,
+                        }));
+                      }}
                     />
                   </Field>
                   <Field>
@@ -220,12 +228,14 @@ export default function LoginPage() {
                       id="signin-password"
                       type="password"
                       value={signInValues.password}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+
                         setSignInValues((current) => ({
                           ...current,
-                          password: event.currentTarget.value,
-                        }))
-                      }
+                          password: value,
+                        }));
+                      }}
                     />
                   </Field>
                 </FieldGroup>

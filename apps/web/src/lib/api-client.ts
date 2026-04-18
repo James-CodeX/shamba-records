@@ -2,7 +2,7 @@ import { env } from "@my-better-t-app/env/web";
 
 export type UserRole = "admin" | "agent";
 export type FieldStage = "planted" | "growing" | "ready" | "harvested";
-export type FieldStatus = "active" | "at_risk" | "completed";
+export type FieldStatus = "active" | "completed";
 
 export type ApiUser = {
   id: string;
@@ -41,7 +41,6 @@ export type AdminDashboard = {
   totalFields: number;
   statusBreakdown: {
     active: number;
-    atRisk: number;
     completed: number;
   };
   updates: Array<{
@@ -61,7 +60,6 @@ export type AgentDashboard = {
   assignedFields: number;
   statusBreakdown: {
     active: number;
-    atRisk: number;
     completed: number;
   };
   fields: FieldSummary[];

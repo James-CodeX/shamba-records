@@ -38,21 +38,12 @@ export const fieldIdParamsSchema = t.Object({
 export const fieldStageValues = ["planted", "growing", "ready", "harvested"] as const;
 
 export type FieldStage = (typeof fieldStageValues)[number];
-export type FieldStatus = "active" | "at_risk" | "completed";
+export type FieldStatus = "active" | "completed";
 export type UserRole = "admin" | "agent";
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-export function computeFieldStatus(stage: FieldStage, plantingDate: Date | string): FieldStatus {
+export function computeFieldStatus(stage: FieldStage, _plantingDate: Date | string): FieldStatus {
   if (stage === "harvested") {
     return "completed";
-  }
-
-  const plantedAt = new Date(plantingDate);
-  const elapsedDays = (Date.now() - plantedAt.getTime()) / MS_PER_DAY;
-
-  if (elapsedDays > 90 && stage !== "ready") {
-    return "at_risk";
   }
 
   return "active";
