@@ -18,40 +18,46 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from "@my-better-t-app/ui/components/sidebar";
-import { ClipboardListIcon, LayoutDashboardIcon, ListChecksIcon, LogOutIcon, RefreshCcwIcon, SproutIcon } from "lucide-react";
+import { ClipboardListIcon, LayoutDashboardIcon, ListChecksIcon, LogOutIcon, RefreshCcwIcon, SproutIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { initialsFromName } from "../dashboard-model";
 
-type DashboardNav = "overview" | "fields" | "activity";
+export type DashboardNav = "overview" | "fields" | "activity" | "users";
+type DashboardHref = "/dashboard" | "/dashboard/fields" | "/dashboard/activity" | "/dashboard/users";
 
 type DashboardShellProps = {
   userName: string;
   isAdmin: boolean;
   activeNav: DashboardNav;
-  setActiveNav: (value: DashboardNav) => void;
   onRefresh: () => Promise<void>;
   isRefreshing: boolean;
   onSignOut: () => void;
   children: ReactNode;
 };
 
-const navItems = [
-  { id: "overview", label: "Overview", icon: LayoutDashboardIcon },
-  { id: "fields", label: "Fields", icon: SproutIcon },
-  { id: "activity", label: "Activity", icon: ClipboardListIcon },
-] as const;
-
 export function DashboardShell({
   userName,
   isAdmin,
   activeNav,
-  setActiveNav,
   onRefresh,
   isRefreshing,
   onSignOut,
   children,
 }: DashboardShellProps) {
+  const navItems: Array<{ id: DashboardNav; label: string; icon: LucideIcon; href: DashboardHref }> = isAdmin
+    ? [
+        { id: "overview", label: "Overview", icon: LayoutDashboardIcon, href: "/dashboard" },
+        { id: "fields", label: "Fields", icon: SproutIcon, href: "/dashboard/fields" },
+        { id: "activity", label: "Activity", icon: ClipboardListIcon, href: "/dashboard/activity" },
+        { id: "users", label: "Users", icon: UsersIcon, href: "/dashboard/users" },
+      ]
+    : [
+        { id: "overview", label: "Overview", icon: LayoutDashboardIcon, href: "/dashboard" },
+        { id: "fields", label: "Fields", icon: SproutIcon, href: "/dashboard/fields" },
+      ];
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon" variant="inset">
@@ -77,11 +83,7 @@ export function DashboardShell({
               <SidebarMenu>
                 {navItems.map((item) => (
                   <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton
-                      render={<a href={`#${item.id}`} />}
-                      isActive={activeNav === item.id}
-                      onClick={() => setActiveNav(item.id)}
-                    >
+                    <SidebarMenuButton render={<Link href={item.href} />} isActive={activeNav === item.id}>
                       <item.icon />
                       <span>{item.label}</span>
                     </SidebarMenuButton>

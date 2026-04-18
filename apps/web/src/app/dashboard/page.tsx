@@ -1,21 +1,38 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+"use client";
 
-import { authClient } from "@/lib/auth-client";
+import { DashboardOverview } from "./components/dashboard-overview";
+import { useDashboard } from "./dashboard-context";
 
-import Dashboard from "./dashboard";
+export default function DashboardPage() {
+  const {
+    user,
+    dashboard,
+    statusTotals,
+    fields,
+    recentlyUpdatedCount,
+    unassignedFields,
+    staleFields,
+    readyFields,
+    error,
+  } = useDashboard();
 
-export default async function DashboardPage() {
-  const session = await authClient.getSession({
-    fetchOptions: {
-      headers: await headers(),
-      throw: true,
-    },
-  });
-
-  if (!session?.user) {
-    redirect("/login");
+  if (!user || !dashboard) {
+    return null;
   }
 
-  return <Dashboard />;
+  return (
+    <DashboardOverview
+      userName={user.name}
+      role={dashboard.role}
+      primaryCount={dashboard.role === "admin" ? dashboard.totalFields : dashboard.assignedFields}
+      primaryLabel={dashboard.role === "admin" ? "Total fields" : "Assigned fields"}
+      statusTotals={statusTotals}
+      fieldsCount={fields.length}
+      recentlyUpdatedCount={recentlyUpdatedCount}
+      unassignedFields={unassignedFields}
+      staleFields={staleFields}
+      readyFields={readyFields}
+      error={error}
+    />
+  );
 }

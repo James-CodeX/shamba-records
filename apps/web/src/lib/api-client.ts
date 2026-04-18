@@ -11,6 +11,17 @@ export type ApiUser = {
   role: UserRole;
 };
 
+export type ManagedUser = {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
+  image?: string | null;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type FieldSummary = {
   id: string;
   name: string;
@@ -174,4 +185,44 @@ export async function createFieldUpdate(
 
 export async function getFieldUpdates(fieldId: string) {
   return apiRequest<{ updates: FieldUpdateEntry[] }>(`/api/fields/${fieldId}/updates`);
+}
+
+export async function listUsers() {
+  return apiRequest<{ users: ManagedUser[]; total: number }>("/api/auth/admin/list-users");
+}
+
+export async function createManagedUser(input: {
+  name: string;
+  email: string;
+  password?: string;
+  role: UserRole;
+}) {
+  return apiRequest<{ user: ManagedUser }>("/api/auth/admin/create-user", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function updateManagedUser(
+  userId: string,
+  data: {
+    name?: string;
+    email?: string;
+    role?: UserRole;
+  },
+) {
+  return apiRequest<ManagedUser>("/api/auth/admin/update-user", {
+    method: "POST",
+    body: {
+      userId,
+      data,
+    },
+  });
+}
+
+export async function deleteManagedUser(userId: string) {
+  return apiRequest<{ success: boolean }>("/api/auth/admin/remove-user", {
+    method: "POST",
+    body: { userId },
+  });
 }

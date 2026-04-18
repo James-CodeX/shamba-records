@@ -1,11 +1,17 @@
 "use client";
 
-import { Alert, AlertDescription, AlertTitle } from "@my-better-t-app/ui/components/alert";
-import { Card, CardHeader } from "@my-better-t-app/ui/components/card";
-import { Separator } from "@my-better-t-app/ui/components/separator";
-import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type FormEvent,
+  type ReactNode,
+  type SetStateAction,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -25,13 +31,56 @@ import {
   type FieldUpdateEntry,
 } from "@/lib/api-client";
 
-import { DashboardAdminActivity } from "./components/dashboard-admin-activity";
-import { DashboardFields } from "./components/dashboard-fields";
-import { DashboardOverview } from "./components/dashboard-overview";
-import { DashboardShell } from "./components/dashboard-shell";
 import { defaultUpdateDraft, getAgeInDays, toDateInput, type EditDraft, type UpdateDraft } from "./dashboard-model";
 
-export default function Dashboard() {
+type AdminUpdate = Extract<DashboardResponse, { role: "admin" }>["updates"][number];
+
+type DashboardContextValue = {
+  isLoading: boolean;
+  isRefreshing: boolean;
+  error: string | null;
+  user: ApiUser | null;
+  dashboard: DashboardResponse | null;
+  fields: FieldSummary[];
+  agents: Array<{ id: string; name: string; email: string }>;
+  newFieldName: string;
+  setNewFieldName: Dispatch<SetStateAction<string>>;
+  newFieldCropType: string;
+  setNewFieldCropType: Dispatch<SetStateAction<string>>;
+  newFieldPlantingDate: string;
+  setNewFieldPlantingDate: Dispatch<SetStateAction<string>>;
+  assignments: Record<string, string>;
+  setAssignments: Dispatch<SetStateAction<Record<string, string>>>;
+  updates: Record<string, UpdateDraft>;
+  setUpdates: Dispatch<SetStateAction<Record<string, UpdateDraft>>>;
+  edits: Record<string, EditDraft>;
+  setEdits: Dispatch<SetStateAction<Record<string, EditDraft>>>;
+  historyByField: Record<string, FieldUpdateEntry[]>;
+  historyVisible: Record<string, boolean>;
+  historyLoading: Record<string, boolean>;
+  isAdmin: boolean;
+  adminUpdates: AdminUpdate[];
+  statusTotals: { active: number; completed: number };
+  unassignedFields: FieldSummary[];
+  readyFields: FieldSummary[];
+  staleFields: FieldSummary[];
+  recentlyUpdatedCount: number;
+  refresh: () => Promise<void>;
+  signOut: () => void;
+  handleCreateField: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  handleAssignField: (fieldId: string) => Promise<void>;
+  handleSubmitUpdate: (fieldId: string) => Promise<void>;
+  handleSaveField: (fieldId: string) => Promise<void>;
+  toggleHistory: (fieldId: string) => Promise<void>;
+};
+
+const DashboardContext = createContext<DashboardContextValue | null>(null);
+
+type DashboardProviderProps = {
+  children: ReactNode;
+};
+
+export function DashboardProvider({ children }: DashboardProviderProps) {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -54,8 +103,6 @@ export default function Dashboard() {
   const [historyByField, setHistoryByField] = useState<Record<string, FieldUpdateEntry[]>>({});
   const [historyVisible, setHistoryVisible] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState<Record<string, boolean>>({});
-
-  const [activeNav, setActiveNav] = useState<"overview" | "fields" | "activity">("overview");
 
   async function loadData(initial = false) {
     if (initial) {
@@ -269,104 +316,57 @@ export default function Dashboard() {
     });
   }
 
-  if (isLoading) {
-    return (
-      <main className="mx-auto flex min-h-svh w-full max-w-5xl items-center px-4 py-10">
-        <div className="grid w-full gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-28" />
-              <Skeleton className="h-4 w-20" />
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-28" />
-              <Skeleton className="h-4 w-20" />
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-28" />
-              <Skeleton className="h-4 w-20" />
-            </CardHeader>
-          </Card>
-        </div>
-      </main>
-    );
+  const isAdmin = dashboard?.role === "admin";
+  const adminUpdates: AdminUpdate[] = dashboard?.role === "admin" ? dashboard.updates : [];
+
+  const value: DashboardContextValue = {
+    isLoading,
+    isRefreshing,
+    error,
+    user,
+    dashboard,
+    fields,
+    agents,
+    newFieldName,
+    setNewFieldName,
+    newFieldCropType,
+    setNewFieldCropType,
+    newFieldPlantingDate,
+    setNewFieldPlantingDate,
+    assignments,
+    setAssignments,
+    updates,
+    setUpdates,
+    edits,
+    setEdits,
+    historyByField,
+    historyVisible,
+    historyLoading,
+    isAdmin,
+    adminUpdates,
+    statusTotals,
+    unassignedFields,
+    readyFields,
+    staleFields,
+    recentlyUpdatedCount,
+    refresh: () => loadData(false),
+    signOut,
+    handleCreateField,
+    handleAssignField,
+    handleSubmitUpdate,
+    handleSaveField,
+    toggleHistory,
+  };
+
+  return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
+}
+
+export function useDashboard() {
+  const context = useContext(DashboardContext);
+
+  if (!context) {
+    throw new Error("useDashboard must be used within DashboardProvider");
   }
 
-  if (!user || !dashboard) {
-    return (
-      <main className="mx-auto flex min-h-svh w-full max-w-4xl items-center px-4 py-10">
-        <Alert variant="destructive">
-          <AlertTitle>Unable to Load Dashboard</AlertTitle>
-          <AlertDescription>{error || "Something went wrong while loading dashboard data."}</AlertDescription>
-        </Alert>
-      </main>
-    );
-  }
-
-  const isAdmin = dashboard.role === "admin";
-  const adminUpdates = dashboard.role === "admin" ? dashboard.updates : [];
-
-  return (
-    <DashboardShell
-      userName={user.name}
-      isAdmin={isAdmin}
-      activeNav={activeNav}
-      setActiveNav={setActiveNav}
-      onRefresh={() => loadData(false)}
-      isRefreshing={isRefreshing}
-      onSignOut={signOut}
-    >
-      <DashboardOverview
-        userName={user.name}
-        role={dashboard.role}
-        primaryCount={isAdmin ? dashboard.totalFields : dashboard.assignedFields}
-        primaryLabel={isAdmin ? "Total fields" : "Assigned fields"}
-        statusTotals={statusTotals}
-        fieldsCount={fields.length}
-        recentlyUpdatedCount={recentlyUpdatedCount}
-        unassignedFields={unassignedFields}
-        staleFields={staleFields}
-        readyFields={readyFields}
-        error={error}
-      />
-
-      <Separator />
-
-      {isAdmin ? (
-        <DashboardAdminActivity
-          newFieldName={newFieldName}
-          setNewFieldName={setNewFieldName}
-          newFieldCropType={newFieldCropType}
-          setNewFieldCropType={setNewFieldCropType}
-          newFieldPlantingDate={newFieldPlantingDate}
-          setNewFieldPlantingDate={setNewFieldPlantingDate}
-          adminUpdates={adminUpdates}
-          handleCreateField={handleCreateField}
-        />
-      ) : null}
-
-      <DashboardFields
-        isAdmin={isAdmin}
-        fields={fields}
-        updates={updates}
-        setUpdates={setUpdates}
-        edits={edits}
-        setEdits={setEdits}
-        assignments={assignments}
-        setAssignments={setAssignments}
-        agents={agents}
-        historyByField={historyByField}
-        historyVisible={historyVisible}
-        historyLoading={historyLoading}
-        toggleHistory={toggleHistory}
-        handleAssignField={handleAssignField}
-        handleSaveField={handleSaveField}
-        handleSubmitUpdate={handleSubmitUpdate}
-      />
-    </DashboardShell>
-  );
+  return context;
 }
