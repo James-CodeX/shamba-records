@@ -34,7 +34,12 @@ export const app = new Elysia({ adapter: node() })
   .post("/api/auth/*", ({ request }) => auth.handler(request))
   .all("/api/auth/*", ({ status }) => status(405))
   .use(fieldsModule)
-  .get("/", () => "OK")
-  .listen(3000, () => {
+  .get("/", () => "OK");
+
+if (process.env.VERCEL !== "1") {
+  app.listen(3000, () => {
     console.log("Server is running on http://localhost:3000");
   });
+}
+
+export default app;
