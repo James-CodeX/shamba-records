@@ -7,6 +7,7 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  role: text("role").$type<"admin" | "agent">().notNull().default("agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -73,9 +74,68 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const field = pgTable("field", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  cropType: text("crop_type").notNull(),
+  plantingDate: timestamp("planting_date").notNull(),
+  stage: text("stage")
+    .$type<"planted" | "growing" | "ready" | "harvested">()
+    .notNull()
+    .default("planted"),
+  status: text("status")
+    .$type<"active" | "at_risk" | "completed">()
+    .notNull()
+    .default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const fieldAssignment = pgTable(
+  "field_assignment",
+  {
+    id: text("id").primaryKey(),
+    fieldId: text("field_id")
+      .notNull()
+      .references(() => field.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("field_assignment_user_idx").on(table.userId),
+    index("field_assignment_field_idx").on(table.fieldId),
+  ],
+);
+
+export const fieldUpdate = pgTable(
+  "field_update",
+  {
+    id: text("id").primaryKey(),
+    fieldId: text("field_id")
+      .notNull()
+      .references(() => field.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    stage: text("stage")
+      .$type<"planted" | "growing" | "ready" | "harvested">()
+      .notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("field_update_field_idx").on(table.fieldId)],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  assignments: many(fieldAssignment),
+  updates: many(fieldUpdate),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -88,6 +148,33 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
+    references: [user.id],
+  }),
+}));
+
+export const fieldRelations = relations(field, ({ many }) => ({
+  assignments: many(fieldAssignment),
+  updates: many(fieldUpdate),
+}));
+
+export const fieldAssignmentRelations = relations(fieldAssignment, ({ one }) => ({
+  field: one(field, {
+    fields: [fieldAssignment.fieldId],
+    references: [field.id],
+  }),
+  user: one(user, {
+    fields: [fieldAssignment.userId],
+    references: [user.id],
+  }),
+}));
+
+export const fieldUpdateRelations = relations(fieldUpdate, ({ one }) => ({
+  field: one(field, {
+    fields: [fieldUpdate.fieldId],
+    references: [field.id],
+  }),
+  user: one(user, {
+    fields: [fieldUpdate.userId],
     references: [user.id],
   }),
 }));

@@ -4,11 +4,13 @@ import { auth } from "@my-better-t-app/auth";
 import { env } from "@my-better-t-app/env/server";
 import { Elysia } from "elysia";
 
-const app = new Elysia({ adapter: node() })
+import { fieldsModule } from "./modules/fields";
+
+export const app = new Elysia({ adapter: node() })
   .use(
     cors({
       origin: env.CORS_ORIGIN,
-      methods: ["GET", "POST", "OPTIONS"],
+      methods: ["GET", "POST", "PATCH", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
     }),
@@ -20,6 +22,7 @@ const app = new Elysia({ adapter: node() })
     }
     return status(405);
   })
+  .use(fieldsModule)
   .get("/", () => "OK")
   .listen(3000, () => {
     console.log("Server is running on http://localhost:3000");
