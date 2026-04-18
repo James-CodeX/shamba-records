@@ -14,7 +14,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -b --force"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.1",
