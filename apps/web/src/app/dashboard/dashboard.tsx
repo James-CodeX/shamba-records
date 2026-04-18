@@ -1,29 +1,61 @@
 "use client";
 
+import { Alert, AlertDescription, AlertTitle } from "@my-better-t-app/ui/components/alert";
+import { Avatar, AvatarFallback } from "@my-better-t-app/ui/components/avatar";
+import { Badge } from "@my-better-t-app/ui/components/badge";
 import { Button } from "@my-better-t-app/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@my-better-t-app/ui/components/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@my-better-t-app/ui/components/field";
 import { Input } from "@my-better-t-app/ui/components/input";
-import { Label } from "@my-better-t-app/ui/components/label";
-import { useEffect, useMemo, useState } from "react";
+import { NativeSelect, NativeSelectOption } from "@my-better-t-app/ui/components/native-select";
+import { Separator } from "@my-better-t-app/ui/components/separator";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarSeparator,
+  SidebarTrigger,
+} from "@my-better-t-app/ui/components/sidebar";
+import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
+import { Textarea } from "@my-better-t-app/ui/components/textarea";
+import {
+  AlertTriangleIcon,
+  ClipboardListIcon,
+  LayoutDashboardIcon,
+  ListChecksIcon,
+  LogOutIcon,
+  RefreshCcwIcon,
+  SproutIcon,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import Loader from "@/components/loader";
+import { authClient } from "@/lib/auth-client";
 import {
   assignField,
   createField,
   createFieldUpdate,
-  getFieldUpdates,
   getAgents,
   getCurrentUser,
   getDashboard,
+  getFieldUpdates,
   getFields,
   updateField,
-  type AgentDashboard,
   type ApiUser,
   type DashboardResponse,
-  type FieldUpdateEntry,
   type FieldStage,
   type FieldSummary,
+  type FieldUpdateEntry,
 } from "@/lib/api-client";
 
 const STAGE_OPTIONS: FieldStage[] = ["planted", "growing", "ready", "harvested"];
@@ -51,18 +83,6 @@ function toDateInput(value: string) {
   return date.toISOString().slice(0, 10);
 }
 
-function statusClasses(status: string) {
-  if (status === "at_risk") {
-    return "border border-orange-600/40 bg-orange-500/10 text-orange-700 dark:text-orange-300";
-  }
-
-  if (status === "completed") {
-    return "border border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  }
-
-  return "border border-sky-600/40 bg-sky-500/10 text-sky-700 dark:text-sky-300";
-}
-
 function getAgeInDays(isoDate: string) {
   const now = Date.now();
   const then = new Date(isoDate).getTime();
@@ -74,15 +94,32 @@ function getAgeInDays(isoDate: string) {
   return (now - then) / (1000 * 60 * 60 * 24);
 }
 
-function objectiveClasses(isDone: boolean) {
-  if (isDone) {
-    return "border border-emerald-600/40 bg-emerald-500/10";
+function statusVariant(status: FieldSummary["status"]) {
+  if (status === "at_risk") {
+    return "destructive" as const;
   }
 
-  return "border border-amber-600/40 bg-amber-500/10";
+  if (status === "completed") {
+    return "default" as const;
+  }
+
+  return "secondary" as const;
+}
+
+function initialsFromName(name: string) {
+  const parts = name
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "");
+
+  return parts.join("") || "U";
 }
 
 export default function Dashboard() {
+  const router = useRouter();
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,12 +132,16 @@ export default function Dashboard() {
   const [newFieldName, setNewFieldName] = useState("");
   const [newFieldCropType, setNewFieldCropType] = useState("");
   const [newFieldPlantingDate, setNewFieldPlantingDate] = useState("");
+
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [updates, setUpdates] = useState<Record<string, UpdateDraft>>({});
   const [edits, setEdits] = useState<Record<string, EditDraft>>({});
+
   const [historyByField, setHistoryByField] = useState<Record<string, FieldUpdateEntry[]>>({});
   const [historyVisible, setHistoryVisible] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState<Record<string, boolean>>({});
+
+  const [activeNav, setActiveNav] = useState<"overview" | "fields" | "activity">("overview");
 
   async function loadData(initial = false) {
     if (initial) {
@@ -112,11 +153,7 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const [me, dashboardData, fieldsData] = await Promise.all([
-        getCurrentUser(),
-        getDashboard(),
-        getFields(),
-      ]);
+      const [me, dashboardData, fieldsData] = await Promise.all([getCurrentUser(), getDashboard(), getFields()]);
 
       setUser(me.user);
       setDashboard(dashboardData);
@@ -171,20 +208,11 @@ export default function Dashboard() {
     return dashboard.statusBreakdown;
   }, [dashboard]);
 
-  const unassignedFields = useMemo(
-    () => fields.filter((item) => item.assignments.length === 0),
-    [fields],
-  );
+  const unassignedFields = useMemo(() => fields.filter((item) => item.assignments.length === 0), [fields]);
 
-  const atRiskFields = useMemo(
-    () => fields.filter((item) => item.status === "at_risk"),
-    [fields],
-  );
+  const atRiskFields = useMemo(() => fields.filter((item) => item.status === "at_risk"), [fields]);
 
-  const readyFields = useMemo(
-    () => fields.filter((item) => item.stage === "ready"),
-    [fields],
-  );
+  const readyFields = useMemo(() => fields.filter((item) => item.stage === "ready"), [fields]);
 
   const staleFields = useMemo(
     () =>
@@ -209,20 +237,8 @@ export default function Dashboard() {
     [fields],
   );
 
-  if (isLoading) {
-    return <Loader />;
-  }
-
-  if (!user || !dashboard) {
-    return (
-      <div className="mx-auto w-full max-w-4xl px-4 py-6">
-        <p className="text-sm text-red-500">{error || "Unable to load dashboard"}</p>
-      </div>
-    );
-  }
-
-  async function handleCreateField(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleCreateField(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     if (!newFieldName || !newFieldCropType || !newFieldPlantingDate) {
       toast.error("Fill in all field details");
@@ -331,462 +347,653 @@ export default function Dashboard() {
     }
   }
 
-  return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Season Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Signed in as {user.name} ({user.role})
-          </p>
+  function signOut() {
+    authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/");
+        },
+      },
+    });
+  }
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto flex min-h-svh w-full max-w-5xl items-center px-4 py-10">
+        <div className="grid w-full gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-4 w-20" />
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-4 w-20" />
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-4 w-20" />
+            </CardHeader>
+          </Card>
         </div>
-        <Button variant="outline" onClick={() => void loadData(false)} disabled={isRefreshing}>
-          {isRefreshing ? "Refreshing..." : "Refresh"}
-        </Button>
-      </div>
+      </main>
+    );
+  }
 
-      {error ? <p className="text-sm text-red-500">{error}</p> : null}
+  if (!user || !dashboard) {
+    return (
+      <main className="mx-auto flex min-h-svh w-full max-w-4xl items-center px-4 py-10">
+        <Alert variant="destructive">
+          <AlertTitle>Unable to Load Dashboard</AlertTitle>
+          <AlertDescription>{error || "Something went wrong while loading dashboard data."}</AlertDescription>
+        </Alert>
+      </main>
+    );
+  }
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{dashboard.role === "admin" ? dashboard.totalFields : dashboard.assignedFields}</CardTitle>
-            <CardDescription>{dashboard.role === "admin" ? "Total fields" : "Assigned fields"}</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{statusTotals.active}</CardTitle>
-            <CardDescription>Active</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{statusTotals.atRisk}</CardTitle>
-            <CardDescription>At Risk</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{statusTotals.completed}</CardTitle>
-            <CardDescription>Completed</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+  const isAdmin = dashboard.role === "admin";
+  const adminUpdates = dashboard.role === "admin" ? dashboard.updates : [];
 
-      {dashboard.role === "admin" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin Mission Board</CardTitle>
-            <CardDescription>Focus on assignment, risk mitigation, and update freshness.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className={`p-2 text-xs ${objectiveClasses(unassignedFields.length === 0)}`}>
-                <p className="font-medium">Assign Unassigned Fields</p>
-                <p className="text-muted-foreground">Pending: {unassignedFields.length}</p>
-              </div>
-              <div className={`p-2 text-xs ${objectiveClasses(atRiskFields.length === 0)}`}>
-                <p className="font-medium">Reduce At-Risk Fields</p>
-                <p className="text-muted-foreground">At risk: {atRiskFields.length}</p>
-              </div>
-              <div className={`p-2 text-xs ${objectiveClasses(staleFields.length === 0)}`}>
-                <p className="font-medium">Keep Updates Fresh</p>
-                <p className="text-muted-foreground">Stale/no updates: {staleFields.length}</p>
-              </div>
-              <div className={`p-2 text-xs ${objectiveClasses(readyFields.length === 0)}`}>
-                <p className="font-medium">Close Ready Fields</p>
-                <p className="text-muted-foreground">Ready to harvest: {readyFields.length}</p>
-              </div>
-            </div>
+  const navItems = [
+    { id: "overview", label: "Overview", icon: LayoutDashboardIcon },
+    { id: "fields", label: "Fields", icon: SproutIcon },
+    { id: "activity", label: "Activity", icon: ClipboardListIcon },
+  ] as const;
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold">Priority Queue</p>
-              {unassignedFields.length === 0 && atRiskFields.length === 0 && staleFields.length === 0 ? (
-                <p className="border p-2 text-xs text-muted-foreground">All key admin objectives are currently on track.</p>
-              ) : null}
-              {unassignedFields.slice(0, 2).map((item) => (
-                <div key={`unassigned-${item.id}`} className="border p-2 text-xs">
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-muted-foreground">Needs assignment</p>
-                </div>
-              ))}
-              {atRiskFields.slice(0, 2).map((item) => (
-                <div key={`risk-${item.id}`} className="border p-2 text-xs">
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-muted-foreground">At risk, prioritize follow-up updates</p>
-                </div>
-              ))}
-              {staleFields.slice(0, 2).map((item) => (
-                <div key={`stale-${item.id}`} className="border p-2 text-xs">
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-muted-foreground">No recent update in the last 7 days</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Agent Action Board</CardTitle>
-            <CardDescription>Stay on cadence and keep your assigned fields moving.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className={`p-2 text-xs ${objectiveClasses(staleFields.length === 0)}`}>
-                <p className="font-medium">Update Stale Fields</p>
-                <p className="text-muted-foreground">Stale/no updates: {staleFields.length}</p>
-              </div>
-              <div className={`p-2 text-xs ${objectiveClasses(atRiskFields.length === 0)}`}>
-                <p className="font-medium">Address At-Risk Fields</p>
-                <p className="text-muted-foreground">At risk: {atRiskFields.length}</p>
-              </div>
-              <div className={`p-2 text-xs ${objectiveClasses(readyFields.length === 0)}`}>
-                <p className="font-medium">Close Ready Stages</p>
-                <p className="text-muted-foreground">Ready to harvest: {readyFields.length}</p>
-              </div>
-              <div className={`p-2 text-xs ${objectiveClasses(recentlyUpdatedCount === fields.length || fields.length === 0)}`}>
-                <p className="font-medium">Keep Daily Momentum</p>
-                <p className="text-muted-foreground">Updated in 48h: {recentlyUpdatedCount}/{fields.length}</p>
-              </div>
-            </div>
+  return (
+    <SidebarProvider>
+      <Sidebar collapsible="icon" variant="inset">
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" isActive>
+                <Avatar size="sm">
+                  <AvatarFallback>{initialsFromName(user.name)}</AvatarFallback>
+                </Avatar>
+                <span className="truncate">{user.name}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold">Your Priorities</p>
-              {atRiskFields.length === 0 && staleFields.length === 0 ? (
-                <p className="border p-2 text-xs text-muted-foreground">Great job. No urgent actions right now.</p>
-              ) : null}
-              {[...atRiskFields, ...staleFields]
-                .filter((item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index)
-                .slice(0, 4)
-                .map((item) => (
-                  <div key={`agent-priority-${item.id}`} className="border p-2 text-xs">
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-muted-foreground">
-                      {item.status === "at_risk"
-                        ? "At risk - submit a detailed update and note."
-                        : "No recent update - log current stage and observations."}
-                    </p>
-                  </div>
+        <SidebarSeparator />
+
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navItems.map((item) => (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      render={<a href={`#${item.id}`} />}
+                      isActive={activeNav === item.id}
+                      onClick={() => setActiveNav(item.id)}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
-      {dashboard.role === "admin" ? (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Create Field</CardTitle>
-              <CardDescription>Add a new field for the season.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleCreateField} className="grid gap-3 md:grid-cols-4">
-                <div className="space-y-2">
-                  <Label htmlFor="field-name">Field Name</Label>
-                  <Input
-                    id="field-name"
-                    value={newFieldName}
-                    onChange={(e) => setNewFieldName(e.currentTarget.value)}
-                    placeholder="North Plot"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="field-crop">Crop Type</Label>
-                  <Input
-                    id="field-crop"
-                    value={newFieldCropType}
-                    onChange={(e) => setNewFieldCropType(e.currentTarget.value)}
-                    placeholder="Maize"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="field-date">Planting Date</Label>
-                  <Input
-                    id="field-date"
-                    type="date"
-                    value={newFieldPlantingDate}
-                    onChange={(e) => setNewFieldPlantingDate(e.currentTarget.value)}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button type="submit" className="w-full">
-                    Create
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+          <SidebarGroup>
+            <SidebarGroupLabel>Role</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive>
+                    <ListChecksIcon />
+                    <span>{isAdmin ? "Admin Operations" : "Agent Operations"}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Updates</CardTitle>
-              <CardDescription>Latest field activity from agents.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {(dashboard as Extract<DashboardResponse, { role: "admin" }>).updates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No updates yet.</p>
-              ) : (
-                (dashboard as Extract<DashboardResponse, { role: "admin" }>).updates.map((update) => (
-                  <div key={update.id} className="border p-2 text-xs">
-                    <p className="font-medium">{update.fieldName}</p>
-                    <p>
-                      {update.stage} by {update.userName} on {new Date(update.createdAt).toLocaleString()}
-                    </p>
-                    {update.notes ? <p className="text-muted-foreground">{update.notes}</p> : null}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </>
-      ) : null}
+        <SidebarFooter>
+          <Button variant="outline" onClick={signOut}>
+            <LogOutIcon data-icon="inline-start" />
+            Sign Out
+          </Button>
+        </SidebarFooter>
+      </Sidebar>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{dashboard.role === "admin" ? "All Fields" : "Assigned Fields"}</CardTitle>
-          <CardDescription>
-            {dashboard.role === "admin"
-              ? "Create, assign, and monitor season progress."
-              : "Update stages and observations for your assigned fields."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {fields.length === 0 ? <p className="text-sm text-muted-foreground">No fields available yet.</p> : null}
+      <SidebarInset>
+        <header className="flex h-14 items-center justify-between px-4 md:px-6">
+          <SidebarTrigger />
+          <Button variant="outline" onClick={() => void loadData(false)} disabled={isRefreshing}>
+            <RefreshCcwIcon data-icon="inline-start" className={isRefreshing ? "animate-spin" : undefined} />
+            {isRefreshing ? "Refreshing" : "Refresh"}
+          </Button>
+        </header>
 
-          {fields.map((fieldItem) => {
-            const agentDashboard = dashboard as AgentDashboard;
-            const updateDraft = updates[fieldItem.id] ?? defaultUpdateDraft(fieldItem.stage);
-            const editDraft = edits[fieldItem.id];
-            const isHistoryVisible = historyVisible[fieldItem.id];
-            const isHistoryLoading = historyLoading[fieldItem.id];
-            const history = historyByField[fieldItem.id] ?? [];
-
-            return (
-              <div key={fieldItem.id} className="space-y-3 border p-3">
-                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold">{fieldItem.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fieldItem.cropType} | planted {new Date(fieldItem.plantingDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="border px-2 py-1">Stage: {fieldItem.stage}</span>
-                    <span className={`px-2 py-1 ${statusClasses(fieldItem.status)}`}>
-                      Status: {fieldItem.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  Assigned: {fieldItem.assignments.length === 0 ? "none" : fieldItem.assignments.map((a) => a.name).join(", ")}
-                </div>
-
-                {fieldItem.latestUpdate ? (
-                  <p className="text-xs text-muted-foreground">
-                    Last update: {fieldItem.latestUpdate.stage} by {fieldItem.latestUpdate.userName} on{" "}
-                    {new Date(fieldItem.latestUpdate.createdAt).toLocaleString()}
-                  </p>
-                ) : null}
-
-                <div className="flex justify-end">
-                  <Button variant="outline" size="sm" onClick={() => void toggleHistory(fieldItem.id)}>
-                    {isHistoryVisible ? "Hide History" : "Show History"}
-                  </Button>
-                </div>
-
-                {isHistoryVisible ? (
-                  <div className="space-y-2 border p-2">
-                    {isHistoryLoading ? <p className="text-xs text-muted-foreground">Loading history...</p> : null}
-                    {!isHistoryLoading && history.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No updates recorded for this field yet.</p>
-                    ) : null}
-                    {!isHistoryLoading
-                      ? history.map((item) => (
-                          <div key={item.id} className="border p-2 text-xs">
-                            <p>
-                              <span className="font-medium">{item.stage}</span> by {item.userName} on{" "}
-                              {new Date(item.createdAt).toLocaleString()}
-                            </p>
-                            {item.notes ? <p className="text-muted-foreground">{item.notes}</p> : null}
-                          </div>
-                        ))
-                      : null}
-                  </div>
-                ) : null}
-
-                {dashboard.role === "admin" ? (
-                  <div className="space-y-3 border p-2">
-                    <p className="text-xs font-semibold">Admin Controls</p>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label htmlFor={`name-${fieldItem.id}`}>Field Name</Label>
-                        <Input
-                          id={`name-${fieldItem.id}`}
-                          value={editDraft?.name ?? ""}
-                          onChange={(e) =>
-                            setEdits((current) => ({
-                              ...current,
-                              [fieldItem.id]: {
-                                name: e.currentTarget.value,
-                                cropType: editDraft?.cropType ?? fieldItem.cropType,
-                                plantingDate: editDraft?.plantingDate ?? toDateInput(fieldItem.plantingDate),
-                                stage: editDraft?.stage ?? fieldItem.stage,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor={`crop-${fieldItem.id}`}>Crop Type</Label>
-                        <Input
-                          id={`crop-${fieldItem.id}`}
-                          value={editDraft?.cropType ?? ""}
-                          onChange={(e) =>
-                            setEdits((current) => ({
-                              ...current,
-                              [fieldItem.id]: {
-                                name: editDraft?.name ?? fieldItem.name,
-                                cropType: e.currentTarget.value,
-                                plantingDate: editDraft?.plantingDate ?? toDateInput(fieldItem.plantingDate),
-                                stage: editDraft?.stage ?? fieldItem.stage,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor={`date-${fieldItem.id}`}>Planting Date</Label>
-                        <Input
-                          id={`date-${fieldItem.id}`}
-                          type="date"
-                          value={editDraft?.plantingDate ?? ""}
-                          onChange={(e) =>
-                            setEdits((current) => ({
-                              ...current,
-                              [fieldItem.id]: {
-                                name: editDraft?.name ?? fieldItem.name,
-                                cropType: editDraft?.cropType ?? fieldItem.cropType,
-                                plantingDate: e.currentTarget.value,
-                                stage: editDraft?.stage ?? fieldItem.stage,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor={`stage-${fieldItem.id}`}>Current Stage</Label>
-                        <select
-                          id={`stage-${fieldItem.id}`}
-                          className="h-8 w-full border bg-background px-2 text-xs"
-                          value={editDraft?.stage ?? fieldItem.stage}
-                          onChange={(e) =>
-                            setEdits((current) => ({
-                              ...current,
-                              [fieldItem.id]: {
-                                name: editDraft?.name ?? fieldItem.name,
-                                cropType: editDraft?.cropType ?? fieldItem.cropType,
-                                plantingDate: editDraft?.plantingDate ?? toDateInput(fieldItem.plantingDate),
-                                stage: e.currentTarget.value as FieldStage,
-                              },
-                            }))
-                          }
-                        >
-                          {STAGE_OPTIONS.map((stage) => (
-                            <option key={stage} value={stage}>
-                              {stage}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-                      <select
-                        className="h-8 border bg-background px-2 text-xs"
-                        value={assignments[fieldItem.id] ?? ""}
-                        onChange={(e) =>
-                          setAssignments((current) => ({
-                            ...current,
-                            [fieldItem.id]: e.currentTarget.value,
-                          }))
-                        }
-                      >
-                        <option value="">Select agent...</option>
-                        {agents.map((agent) => (
-                          <option key={agent.id} value={agent.id}>
-                            {agent.name} ({agent.email})
-                          </option>
-                        ))}
-                      </select>
-                      <Button variant="outline" onClick={() => void handleAssignField(fieldItem.id)}>
-                        Assign Agent
-                      </Button>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button onClick={() => void handleSaveField(fieldItem.id)}>Save Field Details</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <select
-                        className="h-8 border bg-background px-2 text-xs"
-                        value={updateDraft.stage}
-                        onChange={(e) => {
-                          const nextStage = e.currentTarget.value as FieldStage;
-                          setUpdates((current) => ({
-                            ...current,
-                            [fieldItem.id]: {
-                              ...updateDraft,
-                              stage: nextStage,
-                            },
-                          }));
-                        }}
-                      >
-                        {STAGE_OPTIONS.map((stage) => (
-                          <option key={stage} value={stage}>
-                            {stage}
-                          </option>
-                        ))}
-                      </select>
-                      <Button
-                        onClick={() => void handleSubmitUpdate(fieldItem.id)}
-                        disabled={agentDashboard.role !== "agent"}
-                      >
-                        Save Update
-                      </Button>
-                    </div>
-
-                    <textarea
-                      className="w-full border bg-background px-2 py-1 text-xs"
-                      rows={3}
-                      placeholder="Notes or observations"
-                      value={updateDraft.notes}
-                      onChange={(e) =>
-                        setUpdates((current) => ({
-                          ...current,
-                          [fieldItem.id]: {
-                            ...updateDraft,
-                            notes: e.currentTarget.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                )}
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+          <section id="overview" className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <h1 className="text-xl font-semibold">Season Dashboard</h1>
+                <p className="text-xs text-muted-foreground">Signed in as {user.name}</p>
               </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-    </div>
+              <Badge variant="outline">{dashboard.role}</Badge>
+            </div>
+
+            {error ? (
+              <Alert variant="destructive">
+                <AlertTriangleIcon />
+                <AlertTitle>Data Sync Problem</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            <div className="grid gap-3 md:grid-cols-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{isAdmin ? dashboard.totalFields : dashboard.assignedFields}</CardTitle>
+                  <CardDescription>{isAdmin ? "Total fields" : "Assigned fields"}</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{statusTotals.active}</CardTitle>
+                  <CardDescription>Active</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{statusTotals.atRisk}</CardTitle>
+                  <CardDescription>At Risk</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{statusTotals.completed}</CardTitle>
+                  <CardDescription>Completed</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{isAdmin ? "Admin Mission Board" : "Agent Action Board"}</CardTitle>
+                <CardDescription>
+                  {isAdmin
+                    ? "Focus on assignment, risk mitigation, and update freshness."
+                    : "Stay on cadence and keep assigned fields moving."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {isAdmin ? (
+                    <>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Assign Unassigned Fields</CardTitle>
+                          <CardDescription>Pending: {unassignedFields.length}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Reduce At-Risk Fields</CardTitle>
+                          <CardDescription>At risk: {atRiskFields.length}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Keep Updates Fresh</CardTitle>
+                          <CardDescription>Stale/no updates: {staleFields.length}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Close Ready Fields</CardTitle>
+                          <CardDescription>Ready to harvest: {readyFields.length}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                    </>
+                  ) : (
+                    <>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Update Stale Fields</CardTitle>
+                          <CardDescription>Stale/no updates: {staleFields.length}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Address At-Risk Fields</CardTitle>
+                          <CardDescription>At risk: {atRiskFields.length}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Close Ready Stages</CardTitle>
+                          <CardDescription>Ready to harvest: {readyFields.length}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Keep Daily Momentum</CardTitle>
+                          <CardDescription>
+                            Updated in 48h: {recentlyUpdatedCount}/{fields.length}
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    </>
+                  )}
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{isAdmin ? "Priority Queue" : "Your Priorities"}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    {isAdmin && unassignedFields.length === 0 && atRiskFields.length === 0 && staleFields.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">All key admin objectives are currently on track.</p>
+                    ) : null}
+
+                    {!isAdmin && atRiskFields.length === 0 && staleFields.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Great job. No urgent actions right now.</p>
+                    ) : null}
+
+                    {(isAdmin ? [...unassignedFields, ...atRiskFields, ...staleFields] : [...atRiskFields, ...staleFields])
+                      .filter((item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index)
+                      .slice(0, 4)
+                      .map((item) => (
+                        <Card key={`priority-${item.id}`}>
+                          <CardHeader>
+                            <CardTitle>{item.name}</CardTitle>
+                            <CardDescription>
+                              {item.status === "at_risk"
+                                ? "At risk - prioritize with fresh notes."
+                                : item.assignments.length === 0
+                                 ? "Needs assignment."
+                                 : "No recent updates in the last 7 days."}
+                            </CardDescription>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </section>
+
+          <Separator />
+
+          {isAdmin ? (
+            <section id="activity" className="flex flex-col gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create Field</CardTitle>
+                  <CardDescription>Add a new field for the season.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleCreateField} className="flex flex-col gap-3">
+                    <FieldGroup className="grid gap-3 md:grid-cols-4">
+                      <Field>
+                        <FieldLabel htmlFor="field-name">Field Name</FieldLabel>
+                        <Input
+                          id="field-name"
+                          value={newFieldName}
+                          onChange={(event) => setNewFieldName(event.currentTarget.value)}
+                          placeholder="North Plot"
+                        />
+                      </Field>
+
+                      <Field>
+                        <FieldLabel htmlFor="field-crop">Crop Type</FieldLabel>
+                        <Input
+                          id="field-crop"
+                          value={newFieldCropType}
+                          onChange={(event) => setNewFieldCropType(event.currentTarget.value)}
+                          placeholder="Maize"
+                        />
+                      </Field>
+
+                      <Field>
+                        <FieldLabel htmlFor="field-date">Planting Date</FieldLabel>
+                        <Input
+                          id="field-date"
+                          type="date"
+                          value={newFieldPlantingDate}
+                          onChange={(event) => setNewFieldPlantingDate(event.currentTarget.value)}
+                        />
+                      </Field>
+
+                      <Field>
+                        <FieldLabel htmlFor="field-submit">Action</FieldLabel>
+                        <Button id="field-submit" type="submit">
+                          Create Field
+                        </Button>
+                      </Field>
+                    </FieldGroup>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Updates</CardTitle>
+                  <CardDescription>Latest field activity from agents.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                  {adminUpdates.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No updates yet.</p>
+                  ) : (
+                    adminUpdates.map((update) => (
+                      <Card key={update.id}>
+                        <CardHeader>
+                          <CardTitle>{update.fieldName}</CardTitle>
+                          <CardDescription>
+                            {update.stage} by {update.userName} on {new Date(update.createdAt).toLocaleString()}
+                          </CardDescription>
+                        </CardHeader>
+                        {update.notes ? (
+                          <CardContent>
+                            <p className="text-xs text-muted-foreground">{update.notes}</p>
+                          </CardContent>
+                        ) : null}
+                      </Card>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+          ) : null}
+
+          <section id="fields" className="flex flex-col gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{isAdmin ? "All Fields" : "Assigned Fields"}</CardTitle>
+                <CardDescription>
+                  {isAdmin
+                    ? "Create, assign, and monitor season progress."
+                    : "Update stages and observations for your assigned fields."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {fields.length === 0 ? <p className="text-xs text-muted-foreground">No fields available yet.</p> : null}
+
+                {fields.map((fieldItem) => {
+                  const updateDraft = updates[fieldItem.id] ?? defaultUpdateDraft(fieldItem.stage);
+                  const editDraft = edits[fieldItem.id];
+                  const isHistoryVisible = historyVisible[fieldItem.id];
+                  const isFieldHistoryLoading = historyLoading[fieldItem.id];
+                  const history = historyByField[fieldItem.id] ?? [];
+
+                  return (
+                    <Card key={fieldItem.id}>
+                      <CardHeader className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-col gap-1">
+                            <CardTitle>{fieldItem.name}</CardTitle>
+                            <CardDescription>
+                              {fieldItem.cropType} | planted {new Date(fieldItem.plantingDate).toLocaleDateString()}
+                            </CardDescription>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">Stage: {fieldItem.stage}</Badge>
+                            <Badge variant={statusVariant(fieldItem.status)}>{fieldItem.status}</Badge>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          Assigned: {fieldItem.assignments.length === 0 ? "none" : fieldItem.assignments.map((a) => a.name).join(", ")}
+                        </p>
+
+                        {fieldItem.latestUpdate ? (
+                          <p className="text-xs text-muted-foreground">
+                            Last update: {fieldItem.latestUpdate.stage} by {fieldItem.latestUpdate.userName} on{" "}
+                            {new Date(fieldItem.latestUpdate.createdAt).toLocaleString()}
+                          </p>
+                        ) : null}
+
+                        <div className="flex justify-end">
+                          <Button variant="outline" size="sm" onClick={() => void toggleHistory(fieldItem.id)}>
+                            {isHistoryVisible ? "Hide History" : "Show History"}
+                          </Button>
+                        </div>
+                      </CardHeader>
+
+                      {isHistoryVisible ? (
+                        <CardContent className="flex flex-col gap-2">
+                          {isFieldHistoryLoading ? <p className="text-xs text-muted-foreground">Loading history...</p> : null}
+
+                          {!isFieldHistoryLoading && history.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No updates recorded for this field yet.</p>
+                          ) : null}
+
+                          {!isFieldHistoryLoading
+                            ? history.map((item) => (
+                                <Card key={item.id}>
+                                  <CardHeader>
+                                    <CardTitle>{item.stage}</CardTitle>
+                                    <CardDescription>
+                                      by {item.userName} on {new Date(item.createdAt).toLocaleString()}
+                                    </CardDescription>
+                                  </CardHeader>
+                                  {item.notes ? (
+                                    <CardContent>
+                                      <p className="text-xs text-muted-foreground">{item.notes}</p>
+                                    </CardContent>
+                                  ) : null}
+                                </Card>
+                              ))
+                            : null}
+                        </CardContent>
+                      ) : null}
+
+                      <CardContent className="flex flex-col gap-3">
+                        {isAdmin ? (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>Admin Controls</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-col gap-3">
+                              <FieldGroup className="grid gap-3 md:grid-cols-2">
+                                <Field>
+                                  <FieldLabel htmlFor={`name-${fieldItem.id}`}>Field Name</FieldLabel>
+                                  <Input
+                                    id={`name-${fieldItem.id}`}
+                                    value={editDraft?.name ?? ""}
+                                    onChange={(event) =>
+                                      setEdits((current) => ({
+                                        ...current,
+                                        [fieldItem.id]: {
+                                          name: event.currentTarget.value,
+                                          cropType: editDraft?.cropType ?? fieldItem.cropType,
+                                          plantingDate: editDraft?.plantingDate ?? toDateInput(fieldItem.plantingDate),
+                                          stage: editDraft?.stage ?? fieldItem.stage,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </Field>
+
+                                <Field>
+                                  <FieldLabel htmlFor={`crop-${fieldItem.id}`}>Crop Type</FieldLabel>
+                                  <Input
+                                    id={`crop-${fieldItem.id}`}
+                                    value={editDraft?.cropType ?? ""}
+                                    onChange={(event) =>
+                                      setEdits((current) => ({
+                                        ...current,
+                                        [fieldItem.id]: {
+                                          name: editDraft?.name ?? fieldItem.name,
+                                          cropType: event.currentTarget.value,
+                                          plantingDate: editDraft?.plantingDate ?? toDateInput(fieldItem.plantingDate),
+                                          stage: editDraft?.stage ?? fieldItem.stage,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </Field>
+
+                                <Field>
+                                  <FieldLabel htmlFor={`date-${fieldItem.id}`}>Planting Date</FieldLabel>
+                                  <Input
+                                    id={`date-${fieldItem.id}`}
+                                    type="date"
+                                    value={editDraft?.plantingDate ?? ""}
+                                    onChange={(event) =>
+                                      setEdits((current) => ({
+                                        ...current,
+                                        [fieldItem.id]: {
+                                          name: editDraft?.name ?? fieldItem.name,
+                                          cropType: editDraft?.cropType ?? fieldItem.cropType,
+                                          plantingDate: event.currentTarget.value,
+                                          stage: editDraft?.stage ?? fieldItem.stage,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </Field>
+
+                                <Field>
+                                  <FieldLabel htmlFor={`stage-${fieldItem.id}`}>Current Stage</FieldLabel>
+                                  <NativeSelect
+                                    id={`stage-${fieldItem.id}`}
+                                    className="w-full"
+                                    value={editDraft?.stage ?? fieldItem.stage}
+                                    onChange={(event) =>
+                                      setEdits((current) => ({
+                                        ...current,
+                                        [fieldItem.id]: {
+                                          name: editDraft?.name ?? fieldItem.name,
+                                          cropType: editDraft?.cropType ?? fieldItem.cropType,
+                                          plantingDate: editDraft?.plantingDate ?? toDateInput(fieldItem.plantingDate),
+                                          stage: event.currentTarget.value as FieldStage,
+                                        },
+                                      }))
+                                    }
+                                  >
+                                    {STAGE_OPTIONS.map((stage) => (
+                                      <NativeSelectOption key={stage} value={stage}>
+                                        {stage}
+                                      </NativeSelectOption>
+                                    ))}
+                                  </NativeSelect>
+                                </Field>
+                              </FieldGroup>
+
+                              <FieldGroup className="grid gap-3 md:grid-cols-[1fr_auto]">
+                                <Field>
+                                  <FieldLabel htmlFor={`assign-${fieldItem.id}`}>Assign Agent</FieldLabel>
+                                  <NativeSelect
+                                    id={`assign-${fieldItem.id}`}
+                                    className="w-full"
+                                    value={assignments[fieldItem.id] ?? ""}
+                                    onChange={(event) =>
+                                      setAssignments((current) => ({
+                                        ...current,
+                                        [fieldItem.id]: event.currentTarget.value,
+                                      }))
+                                    }
+                                  >
+                                    <NativeSelectOption value="">Select agent...</NativeSelectOption>
+                                    {agents.map((agent) => (
+                                      <NativeSelectOption key={agent.id} value={agent.id}>
+                                        {agent.name} ({agent.email})
+                                      </NativeSelectOption>
+                                    ))}
+                                  </NativeSelect>
+                                </Field>
+
+                                <Field>
+                                  <FieldLabel htmlFor={`assign-action-${fieldItem.id}`}>Action</FieldLabel>
+                                  <Button
+                                    id={`assign-action-${fieldItem.id}`}
+                                    variant="outline"
+                                    onClick={() => void handleAssignField(fieldItem.id)}
+                                  >
+                                    Assign Agent
+                                  </Button>
+                                </Field>
+                              </FieldGroup>
+
+                              <Button onClick={() => void handleSaveField(fieldItem.id)}>Save Field Details</Button>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>Agent Update</CardTitle>
+                              <CardDescription>Capture latest stage and field observations.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex flex-col gap-3">
+                              <FieldGroup className="grid gap-3 md:grid-cols-2">
+                                <Field>
+                                  <FieldLabel htmlFor={`agent-stage-${fieldItem.id}`}>Stage</FieldLabel>
+                                  <NativeSelect
+                                    id={`agent-stage-${fieldItem.id}`}
+                                    className="w-full"
+                                    value={updateDraft.stage}
+                                    onChange={(event) => {
+                                      const nextStage = event.currentTarget.value as FieldStage;
+                                      setUpdates((current) => ({
+                                        ...current,
+                                        [fieldItem.id]: {
+                                          ...updateDraft,
+                                          stage: nextStage,
+                                        },
+                                      }));
+                                    }}
+                                  >
+                                    {STAGE_OPTIONS.map((stage) => (
+                                      <NativeSelectOption key={stage} value={stage}>
+                                        {stage}
+                                      </NativeSelectOption>
+                                    ))}
+                                  </NativeSelect>
+                                </Field>
+
+                                <Field>
+                                  <FieldLabel htmlFor={`agent-action-${fieldItem.id}`}>Action</FieldLabel>
+                                  <Button id={`agent-action-${fieldItem.id}`} onClick={() => void handleSubmitUpdate(fieldItem.id)}>
+                                    Save Update
+                                  </Button>
+                                </Field>
+                              </FieldGroup>
+
+                              <Field>
+                                <FieldLabel htmlFor={`agent-notes-${fieldItem.id}`}>Notes</FieldLabel>
+                                <Textarea
+                                  id={`agent-notes-${fieldItem.id}`}
+                                  placeholder="Notes or observations"
+                                  value={updateDraft.notes}
+                                  onChange={(event) =>
+                                    setUpdates((current) => ({
+                                      ...current,
+                                      [fieldItem.id]: {
+                                        ...updateDraft,
+                                        notes: event.currentTarget.value,
+                                      },
+                                    }))
+                                  }
+                                />
+                                <FieldDescription>Include weather impact, pest risk, or growth quality notes.</FieldDescription>
+                              </Field>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </section>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
