@@ -1,6 +1,10 @@
 import { Elysia } from "elysia";
 
 import {
+  type AssignFieldBody,
+  type CreateFieldBody,
+  type CreateFieldUpdateBody,
+  type UpdateFieldBody,
   assignFieldBodySchema,
   createFieldBodySchema,
   createFieldUpdateBodySchema,
@@ -11,9 +15,25 @@ import { FieldsService } from "./service";
 
 const fieldsService = new FieldsService();
 
+function toHeadersObject(headers: unknown): Headers {
+  const normalized = new Headers();
+
+  if (!headers || typeof headers !== "object") {
+    return normalized;
+  }
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value === "string") {
+      normalized.set(key, value);
+    }
+  }
+
+  return normalized;
+}
+
 export const fieldsModule = new Elysia({ name: "fields-module" })
-  .get("/api/me", async ({ request, status }) => {
-    const currentUser = await fieldsService.authenticate(request.headers);
+  .get("/api/me", async ({ headers, status }) => {
+    const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
     if (!currentUser) {
       return status(401, { message: "Unauthorized" });
@@ -21,8 +41,8 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
 
     return { user: currentUser };
   })
-  .get("/api/dashboard", async ({ request, status }) => {
-    const currentUser = await fieldsService.authenticate(request.headers);
+  .get("/api/dashboard", async ({ headers, status }) => {
+    const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
     if (!currentUser) {
       return status(401, { message: "Unauthorized" });
@@ -30,8 +50,8 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
 
     return fieldsService.getDashboard(currentUser);
   })
-  .get("/api/agents", async ({ request, status }) => {
-    const currentUser = await fieldsService.authenticate(request.headers);
+  .get("/api/agents", async ({ headers, status }) => {
+    const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
     if (!currentUser) {
       return status(401, { message: "Unauthorized" });
@@ -45,8 +65,8 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
 
     return { agents };
   })
-  .get("/api/fields", async ({ request, status }) => {
-    const currentUser = await fieldsService.authenticate(request.headers);
+  .get("/api/fields", async ({ headers, status }) => {
+    const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
     if (!currentUser) {
       return status(401, { message: "Unauthorized" });
@@ -57,14 +77,14 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
   })
   .post(
     "/api/fields",
-    async ({ request, body, status }) => {
-      const currentUser = await fieldsService.authenticate(request.headers);
+    async ({ headers, body, status }) => {
+      const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
       if (!currentUser) {
         return status(401, { message: "Unauthorized" });
       }
 
-      const createdField = await fieldsService.createField(currentUser, body);
+      const createdField = await fieldsService.createField(currentUser, body as CreateFieldBody);
 
       if (!createdField) {
         return status(403, { message: "Only admins can create fields" });
@@ -82,14 +102,18 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
   )
   .patch(
     "/api/fields/:fieldId",
-    async ({ request, params, body, status }) => {
-      const currentUser = await fieldsService.authenticate(request.headers);
+    async ({ headers, params, body, status }) => {
+      const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
       if (!currentUser) {
         return status(401, { message: "Unauthorized" });
       }
 
-      const updatedField = await fieldsService.updateField(currentUser, params.fieldId, body);
+      const updatedField = await fieldsService.updateField(
+        currentUser,
+        params.fieldId,
+        body as UpdateFieldBody,
+      );
 
       if (!updatedField) {
         return status(403, { message: "Only admins can edit fields" });
@@ -108,14 +132,18 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
   )
   .post(
     "/api/fields/:fieldId/assign",
-    async ({ request, params, body, status }) => {
-      const currentUser = await fieldsService.authenticate(request.headers);
+    async ({ headers, params, body, status }) => {
+      const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
       if (!currentUser) {
         return status(401, { message: "Unauthorized" });
       }
 
-      const assignment = await fieldsService.assignField(currentUser, params.fieldId, body.userId);
+      const assignment = await fieldsService.assignField(
+        currentUser,
+        params.fieldId,
+        (body as AssignFieldBody).userId,
+      );
 
       if (!assignment) {
         return status(403, { message: "Only admins can assign fields" });
@@ -134,8 +162,8 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
   )
   .get(
     "/api/fields/:fieldId/updates",
-    async ({ request, params, status }) => {
-      const currentUser = await fieldsService.authenticate(request.headers);
+    async ({ headers, params, status }) => {
+      const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
       if (!currentUser) {
         return status(401, { message: "Unauthorized" });
@@ -155,14 +183,18 @@ export const fieldsModule = new Elysia({ name: "fields-module" })
   )
   .post(
     "/api/fields/:fieldId/updates",
-    async ({ request, params, body, status }) => {
-      const currentUser = await fieldsService.authenticate(request.headers);
+    async ({ headers, params, body, status }) => {
+      const currentUser = await fieldsService.authenticate(toHeadersObject(headers));
 
       if (!currentUser) {
         return status(401, { message: "Unauthorized" });
       }
 
-      const createdUpdate = await fieldsService.createFieldUpdate(currentUser, params.fieldId, body);
+      const createdUpdate = await fieldsService.createFieldUpdate(
+        currentUser,
+        params.fieldId,
+        body as CreateFieldUpdateBody,
+      );
 
       if (!createdUpdate) {
         return status(403, { message: "Not allowed to update this field" });

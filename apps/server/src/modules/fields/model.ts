@@ -35,6 +35,12 @@ export const fieldIdParamsSchema = t.Object({
   fieldId: t.String({ minLength: 1 }),
 });
 
+export type CreateFieldBody = typeof createFieldBodySchema.static;
+export type UpdateFieldBody = typeof updateFieldBodySchema.static;
+export type AssignFieldBody = typeof assignFieldBodySchema.static;
+export type CreateFieldUpdateBody = typeof createFieldUpdateBodySchema.static;
+export type FieldIdParams = typeof fieldIdParamsSchema.static;
+
 export const fieldStageValues = ["planted", "growing", "ready", "harvested"] as const;
 
 export type FieldStage = (typeof fieldStageValues)[number];
