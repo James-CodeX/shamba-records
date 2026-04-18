@@ -1,9 +1,8 @@
 {
-  "extends": "@my-better-t-app/config/tsconfig.base.json",
+  "extends": "../../packages/config/tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
     "outDir": "dist",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
