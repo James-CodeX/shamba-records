@@ -1,5 +1,6 @@
 import { cors } from "@elysiajs/cors";
 import { node } from "@elysiajs/node";
+import { openapi } from "@elysiajs/openapi";
 import { auth } from "@my-better-t-app/auth";
 import { env } from "@my-better-t-app/env/server";
 import { Elysia } from "elysia";
@@ -13,6 +14,20 @@ export const app = new Elysia({ adapter: node() })
       methods: ["GET", "POST", "PATCH", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       credentials: true,
+    }),
+  )
+  .use(
+    openapi({
+      path: "/swagger",
+      provider: "swagger-ui",
+      documentation: {
+        info: {
+          title: "Shamba Records API",
+          version: "1.0.0",
+          description: "API for authentication, dashboard data, and field operations.",
+        },
+        tags: [{ name: "Fields", description: "Field management and activity endpoints." }],
+      },
     }),
   )
   .all("/api/auth/*", async (context) => {

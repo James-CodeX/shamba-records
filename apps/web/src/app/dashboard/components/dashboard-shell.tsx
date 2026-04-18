@@ -83,7 +83,7 @@ export function DashboardShell({
               <SidebarMenu>
                 {navItems.map((item) => (
                   <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton render={<Link href={item.href} />} isActive={activeNav === item.id}>
+                    <SidebarMenuButton render={<Link href={{ pathname: item.href }} />} isActive={activeNav === item.id}>
                       <item.icon />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
